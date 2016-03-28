@@ -208,7 +208,7 @@ scene.add(mesh);
 
 var particlePositions = [];
 var spline = new THREE.CatmullRomCurve3( verticesPositions );
-particlePositions = spline.getPoints(7);  //division
+particlePositions = spline.getPoints(50);  //division
 
 
 
@@ -217,7 +217,7 @@ var particleSystem, spawnerOptions, options, expOptions = [];
 var tick = 0, clock = new THREE.Clock(true);
 
 particleSystem = new THREE.GPUParticleSystem({
-  maxParticles: 5000
+  maxParticles: 10000
 });
 scene.add(particleSystem);
 
