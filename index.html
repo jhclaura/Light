@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<title>Web VR boilerplate</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, shrink-to-fit=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="/manifest.json">
+<style>
+body {
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+  color: #fff;
+  margin: 0px;
+  padding: 0;
+  overflow: hidden;
+}
+</style>
+</head>
+
+<body>
+
+</body>
+
+<script>
+/*
+ * Debug parameters.
+ */
+WebVRConfig = {
+  /**
+   * webvr-polyfill configuration
+   */
+
+  // Forces availability of VR mode.
+  //FORCE_ENABLE_VR: true, // Default: false.
+  // Complementary filter coefficient. 0 for accelerometer, 1 for gyro.
+  //K_FILTER: 0.98, // Default: 0.98.
+  // How far into the future to predict during fast motion.
+  //PREDICTION_TIME_S: 0.040, // Default: 0.040 (in seconds).
+  // Flag to disable touch panner. In case you have your own touch controls
+  //TOUCH_PANNER_DISABLED: true, // Default: false.
+  // Enable yaw panning only, disabling roll and pitch. This can be useful for
+  // panoramas with nothing interesting above or below.
+  //YAW_ONLY: true, // Default: false.
+
+  // Scales the recommended buffer size reported by WebVR, which can improve
+  // performance.
+  BUFFER_SCALE: 0.5, // Default: 1.0.
+
+  /**
+   * webvr-boilerplate configuration
+   */
+  // Forces distortion in VR mode.
+  //FORCE_DISTORTION: true, // Default: false.
+  // Override the distortion background color.
+  // DISTORTION_BGCOLOR: {x: 1, y: 0, z: 0, w: 1}, // Default: (0,0,0,1).
+  // Prevent distortion from happening.
+  PREVENT_DISTORTION: true, // Default: false.
+  // Show eye centers for debugging.
+  // SHOW_EYE_CENTERS: true, // Default: false.
+  // Prevent the online DPDB from being fetched.
+  // NO_DPDB_FETCH: true,  // Default: false.
+};
+</script>
+
+<!--
+  A polyfill for Promises. Needed for IE and Edge.
+  -->
+<script src="node_modules/es6-promise/dist/es6-promise.js"></script>
+
+<!--
+  three.js 3d library
+  -->
+<script src="node_modules/three/three.min.js"></script>
+
+<!--
+  VRControls.js acquires positional information from connected VR devices and applies the transformations to a three.js camera object.
+   -->
+<!-- <script src="node_modules/three/examples/js/controls/VRControls.js"></script> -->
+
+<!--
+  VREffect.js handles stereo camera setup and rendering.
+  -->
+<script src="node_modules/three/examples/js/effects/VREffect.js"></script>
+
+<!--
+  A polyfill for WebVR using the Device{Motion,Orientation}Event API.
+  -->
+<script src="node_modules/webvr-polyfill/build/webvr-polyfill.js"></script>
+
+<!--
+  Helps enter and exit VR mode, provides best practices while in VR.
+  -->
+<script src="build/webvr-manager.js"></script>
+
+<script src="js/GPUParticleSystem_Exp.js"></script>
+<script src="js/tween.min.js"></script>
+<script src="js/cameraUtil.js"></script>
+<script src="js/VRControlsExp.js"></script>
+<script src="node_modules/three/examples/js/libs/dat.gui.min.js"></script>
+-
+
+<script>
+// Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
+// Only enable it if you actually need to.
+var renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setPixelRatio(window.devicePixelRatio);
+
+// Append the canvas element created by the renderer to document body element.
+document.body.appendChild(renderer.domElement);
+
+// Create a three.js scene.
+var scene = new THREE.Scene();
+
+// Create a three.js camera.
+var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100000);
+
+
+
+
+
+
+// MAEVR_EXPERIENCE
+// CAMERA
+//-------------------------------------------------------
+camera.position.z = 5;  //397
+
+var parentCamera = CamUtil.setParentCam( camera, {
+  startPosition: new THREE.Vector3(0,0,0), // new THREE.Vector3(0,12,0)
+  cameraSpeed: 3,
+  camKeyTimes:[1000, 2736, 5840, 6591, 6628, 6979, 7766]
+});
+
+// setTimeout(function(){
+//   CamUtil.startCameraAnimationSeries( parentCamera );
+// },5000);
+//-------------------------------------------------------
+
+
+
+
+
+
+
+// Apply VR headset positional data to camera.
+var controls = new THREE.VRControls(camera);
+
+// Apply VR stereo rendering to renderer.
+var effect = new THREE.VREffect(renderer);
+effect.setSize(window.innerWidth, window.innerHeight);
+
+// Add a repeating grid as a skybox.
+var boxWidth = 2000;
+var loader = new THREE.TextureLoader();
+loader.load('img/box.png', onTextureLoaded);
+
+function onTextureLoaded(texture) {
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(40, 40);
+
+  var geometry = new THREE.BoxGeometry(boxWidth, boxWidth, boxWidth);
+  var material = new THREE.MeshBasicMaterial({
+    map: texture,
+    color: 0x01BE00,
+    side: THREE.BackSide
+  });
+
+  var skybox = new THREE.Mesh(geometry, material);
+  scene.add(skybox);
+}
+
+
+// Create a VR manager helper to enter and exit VR mode.
+var params = {
+  hideButton: false, // Default: false.
+  isUndistorted: false // Default: false.
+};
+var manager = new WebVRManager(renderer, effect, params);
+
+// MAEVR_EXPERIENCE
+// PARTICLES
+//-------------------------------------------------------
+var gui = new dat.GUI();
+
+var geometry = new THREE.BoxGeometry( 5, 5, 5 );
+var material = new THREE.MeshNormalMaterial({transparent: true, opacity: 0});
+var mesh = new THREE.Mesh(geometry, material);
+mesh.visible = false;
+
+// mesh.position.set(0,0,-3);
+mesh.updateMatrixWorld();
+geometry.verticesNeedUpdate = true;
+var verticesPositions = [];
+// var particlePositions = geometry.vertices;
+
+for(var i=0; i<geometry.vertices.length; i++){
+  var vector = geometry.vertices[i].clone();
+  vector.applyMatrix4(mesh.matrixWorld);
+  verticesPositions.push(vector);
+}
+// Add mesh to your three.js scene
+scene.add(mesh);
+
+var particlePositions = [];
+var spline = new THREE.CatmullRomCurve3( verticesPositions );
+particlePositions = spline.getPoints(50);  //division
+
+
+
+
+var particleSystem, spawnerOptions, options, expOptions = [];
+var tick = 0, clock = new THREE.Clock(true);
+
+particleSystem = new THREE.GPUParticleSystem({
+  maxParticles: 5000
+});
+scene.add(particleSystem);
+
+options = {
+  // position: new THREE.Vector3(),
+  positionRandomness: 2,  //.3
+  // velocity: new THREE.Vector3(),
+  velocityRandomness: 1.4, //.5
+  // color: 0xaa88ff,
+  colorRandomness: .2,
+  turbulence: 10, //.5
+  lifetime: 50,  //2
+  size: 10,
+  sizeRandomness: 10
+};
+
+spawnerOptions = {
+  // spawnRate: 1,
+  // horizontalSpeed: 1.5,
+  // verticalSpeed: 1.33,
+  timeScale: .1 // 1
+};
+
+gui.add(options, "velocityRandomness", 0, 3);
+gui.add(options, "positionRandomness", 0, 3);
+gui.add(options, "size", 1, 20);
+gui.add(options, "sizeRandomness", 0, 25);
+gui.add(options, "colorRandomness", 0, 1);
+gui.add(options, "lifetime", .1, 1000);
+gui.add(options, "turbulence", 0, 50);
+gui.add(spawnerOptions, "timeScale", -1, 1);
+
+//
+for(var i=0; i<particlePositions.length; i++){
+
+  var opts = {
+    position: particlePositions[i],
+    positionRandomness: .3,  //.3
+    velocity: new THREE.Vector3(),
+    velocityRandomness: .5,
+    color: 0xaa88ff,
+    colorRandomness: .2,
+    turbulence: 1, //.5
+    lifetime: 10,  //2
+    size: 10,
+    sizeRandomness: 5
+  };
+
+  expOptions.push(opts);
+}
+//-------------------------------------------------------
+
+
+
+
+
+
+// Request animation frame loop function
+var lastRender = 0;
+
+function animate(timestamp) {
+  var delta = Math.min(timestamp - lastRender, 500);
+  lastRender = timestamp;
+
+  // Apply rotation to mesh
+  // mesh.rotation.y += delta * 0.0006;
+
+  // Update VR headset position and apply to camera.
+  controls.update();
+
+
+
+
+
+
+// MAEVR_EXPERIENCE
+//-------------------------------------------------------
+  TWEEN.update();
+
+  // PARTICLES
+
+    for(var i=0; i<expOptions.length; i++){
+      expOptions[i].positionRandomness = options.positionRandomness;
+      expOptions[i].velocityRandomness = options.velocityRandomness;
+      expOptions[i].colorRandomness = options.colorRandomness;
+      expOptions[i].turbulence = options.turbulence;
+      expOptions[i].lifetime = options.lifetime;
+      expOptions[i].size = options.size;
+      expOptions[i].sizeRandomness = options.sizeRandomness;
+    }
+
+
+
+
+    delta = clock.getDelta() * spawnerOptions.timeScale;
+    tick += delta;
+    // console.log(tick);
+
+    if(tick<0)  tick=0;
+    if(delta>0){
+      // for(var i=0; i<spawnerOptions.spawnRate; i++){
+      //   particleSystem.spawnParticle(options);
+      // }
+
+      for(var i=0; i<expOptions.length; i++){
+        particleSystem.spawnParticle( expOptions[i] );
+      }
+    }
+    particleSystem.update(tick);
+//-------------------------------------------------------
+
+
+
+
+
+
+
+
+  // Render the scene through the manager.
+  manager.render(scene, camera, timestamp);
+
+  requestAnimationFrame(animate);
+}
+
+// Kick off animation loop
+animate(performance ? performance.now() : Date.now());
+
+// Reset the position sensor when 'z' pressed.
+function onKey(event) {
+  // if (event.keyCode == 90) { // z
+  //   controls.resetSensor();
+  // }
+  switch ( event.keyCode ) {
+
+    case 90: //z
+      controls.resetSensor();
+      break;
+
+
+
+
+
+    // MAEVR_EXPERIENCE
+    //---------------------------------------------------
+    case 49: //1
+      CamUtil.align( camera, controls );
+      break;
+    //---------------------------------------------------
+
+
+
+
+
+  }
+}
+
+window.addEventListener('keydown', onKey, true);
+
+
+
+
+
+
+
+// MAEVR_EXPERIENCE
+//-------------------------------------------------------
+function onTouchStart() {
+  CamUtil.align( camera, controls );
+}
+window.addEventListener( 'touchstart', onTouchStart, false );
+//-------------------------------------------------------
+
+
+
+
+
+
+</script>
+
+</html>

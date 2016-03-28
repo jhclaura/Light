@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<title>Web VR boilerplate</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, shrink-to-fit=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="/manifest.json">
+<style>
+body {
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+  color: #fff;
+  margin: 0px;
+  padding: 0;
+  overflow: hidden;
+}
+</style>
+</head>
+
+<body>
+
+</body>
+
+<script>
+/*
+ * Debug parameters.
+ */
+WebVRConfig = {
+  /**
+   * webvr-polyfill configuration
+   */
+
+  // Forces availability of VR mode.
+  //FORCE_ENABLE_VR: true, // Default: false.
+  // Complementary filter coefficient. 0 for accelerometer, 1 for gyro.
+  //K_FILTER: 0.98, // Default: 0.98.
+  // How far into the future to predict during fast motion.
+  //PREDICTION_TIME_S: 0.040, // Default: 0.040 (in seconds).
+  // Flag to disable touch panner. In case you have your own touch controls
+  //TOUCH_PANNER_DISABLED: true, // Default: false.
+  // Enable yaw panning only, disabling roll and pitch. This can be useful for
+  // panoramas with nothing interesting above or below.
+  //YAW_ONLY: true, // Default: false.
+
+  // Scales the recommended buffer size reported by WebVR, which can improve
+  // performance.
+  BUFFER_SCALE: 0.5, // Default: 1.0.
+
+  /**
+   * webvr-boilerplate configuration
+   */
+  // Forces distortion in VR mode.
+  //FORCE_DISTORTION: true, // Default: false.
+  // Override the distortion background color.
+  // DISTORTION_BGCOLOR: {x: 1, y: 0, z: 0, w: 1}, // Default: (0,0,0,1).
+  // Prevent distortion from happening.
+  PREVENT_DISTORTION: true, // Default: false.
+  // Show eye centers for debugging.
+  // SHOW_EYE_CENTERS: true, // Default: false.
+  // Prevent the online DPDB from being fetched.
+  // NO_DPDB_FETCH: true,  // Default: false.
+};
+</script>
+
+<!--
+  A polyfill for Promises. Needed for IE and Edge.
+  -->
+<script src="node_modules/es6-promise/dist/es6-promise.js"></script>
+
+<!--
+  three.js 3d library
+  -->
+<script src="node_modules/three/three.min.js"></script>
+
+<!--
+  VRControls.js acquires positional information from connected VR devices and applies the transformations to a three.js camera object.
+   -->
+<script src="node_modules/three/examples/js/controls/VRControls.js"></script>
+
+<!--
+  VREffect.js handles stereo camera setup and rendering.
+  -->
+<script src="node_modules/three/examples/js/effects/VREffect.js"></script>
+
+<!--
+  A polyfill for WebVR using the Device{Motion,Orientation}Event API.
+  -->
+<script src="node_modules/webvr-polyfill/build/webvr-polyfill.js"></script>
+
+<!--
+  Helps enter and exit VR mode, provides best practices while in VR.
+  -->
+<script src="build/webvr-manager.js"></script>
+
+<script src="js/GPUParticleSystem.js"></script>
+<script src="js/tween.min.js"></script>
+<script src="js/cameraUtil.js"></script>
+
+
+<script>
+// Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
+// Only enable it if you actually need to.
+var renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setPixelRatio(window.devicePixelRatio);
+
+// Append the canvas element created by the renderer to document body element.
+document.body.appendChild(renderer.domElement);
+
+// Create a three.js scene.
+var scene = new THREE.Scene();
+
+// Create a three.js camera.
+var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100000);
+camera.position.z = 397;
+
+// var superCam = new THREE.Object3D();
+// superCam.add(camera);
+
+// Apply VR headset positional data to camera.
+var controls = new THREE.VRControls(camera);
+
+// var superCam = new THREE.Object3D();
+// superCam.add(camera);
+
+// Apply VR stereo rendering to renderer.
+var effect = new THREE.VREffect(renderer);
+effect.setSize(window.innerWidth, window.innerHeight);
+
+
+// Add a repeating grid as a skybox.
+var boxWidth = 2000;
+var loader = new THREE.TextureLoader();
+loader.load('img/box.png', onTextureLoaded);
+
+function onTextureLoaded(texture) {
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(40, 40);
+
+  var geometry = new THREE.BoxGeometry(boxWidth, boxWidth, boxWidth);
+  var material = new THREE.MeshBasicMaterial({
+    map: texture,
+    color: 0x01BE00,
+    side: THREE.BackSide
+  });
+
+  var skybox = new THREE.Mesh(geometry, material);
+  scene.add(skybox);
+}
+
+
+// Create a VR manager helper to enter and exit VR mode.
+var params = {
+  hideButton: false, // Default: false.
+  isUndistorted: false // Default: false.
+};
+var manager = new WebVRManager(renderer, effect, params);
+
+// Create 3D objects.
+var geometry = new THREE.BoxGeometry(5,5,5);
+var material = new THREE.MeshNormalMaterial();
+var cube = new THREE.Mesh(geometry, material);
+
+// Position cube mesh
+// cube.position.z = -1;
+
+// Add cube mesh to your three.js scene
+scene.add(cube);
+
+
+
+////////////////////////////////////////////////////////
+// Camera
+////////////////////////////////////////////////////////
+
+var camSpeed = 3;
+
+// var superCamKeyTime30FPS = [1000, 2736, 6591, 6979, 7378]; //v.1
+var superCamKeyTime30FPS = [1000, 2736, 5840, 6591, 6628, 6979, 7766];
+for(var i=0; i<superCamKeyTime30FPS.length; i++){
+  superCamKeyTime30FPS[i] = Math.floor(superCamKeyTime30FPS[i]/30*1000/camSpeed);
+}
+
+
+
+////////////////////////////////////////////////////////
+// Particles
+////////////////////////////////////////////////////////
+
+var particleSystem, spawnerOptions, options;
+var tick = 0, clock = new THREE.Clock(true);
+
+// particleSystem = new THREE.GPUParticleSystem({
+//   maxParticles: 5000
+// });
+// scene.add(particleSystem);
+
+// options = {
+//   position: new THREE.Vector3(),
+//   positionRandomness: .3,  //.3
+//   velocity: new THREE.Vector3(),
+//   velocityRandomness: .5,
+//   color: 0xaa88ff,
+//   colorRandomness: .2,
+//   turbulence: .1, //.5
+//   lifetime: 5,  //2
+//   size: 10,
+//   sizeRandomness: 1
+// };
+
+// spawnerOptions = {
+//   spawnRate: 150,
+//   horizontalSpeed: 1.5,
+//   verticalSpeed: 1.33,
+//   timeScale: 1
+// };
+
+  
+
+
+// setTimeout(function(){
+//   StartCamAnimation();
+// },5000);
+
+
+
+
+// Request animation frame loop function
+var lastRender = 0;
+
+function animate(timestamp) {
+  var delta = Math.min(timestamp - lastRender, 500);
+  lastRender = timestamp;
+
+  // Apply rotation to cube mesh
+  cube.rotation.y += delta * 0.0006;
+
+
+  // Update VR headset position and apply to camera.
+  controls.update();
+
+  TWEEN.update();
+
+
+
+
+  // PARTICLES
+    // delta = clock.getDelta() * spawnerOptions.timeScale;
+    // tick += delta;
+    // if(tick<0)  tick=0;
+    // if(delta>0){
+    //   for(var i=0; i<spawnerOptions.spawnRate; i++){
+    //     particleSystem.spawnParticle(options);
+    //   }
+    // }
+    // particleSystem.update(tick);
+
+
+
+
+
+
+  // Render the scene through the manager.
+  manager.render(scene, camera, timestamp);
+
+  requestAnimationFrame(animate);
+}
+
+// Kick off animation loop
+animate(performance ? performance.now() : Date.now());
+
+// Reset the position sensor when 'z' pressed.
+function onKey(event) {
+  // if (event.keyCode == 90) { // z
+  //   controls.resetSensor();
+  // }
+  switch ( event.keyCode ) {
+
+    case 90: //z
+      controls.resetSensor();
+      break;
+
+    case 49: //1
+      controls.align();
+      break;
+
+    case 50: //2
+
+      // v.2
+      // move forward
+      // new TWEEN.Tween( controls.superCam.children[0].position )
+      // .to( {z: 17}, 1200 )
+      // .easing( TWEEN.Easing.Quadratic.InOut )
+      // .onComplete(function(){
+
+      //   // move upward
+      //   new TWEEN.Tween( controls.superCam.position )
+      //   .to( {y: 40}, 5000 )
+      //   .easing( TWEEN.Easing.Quadratic.InOut )
+      //   .onComplete(function(){
+
+      //     // rotate to look down
+      //     new TWEEN.Tween( controls.superCam.rotation )
+      //     .to( {x: -Math.PI/2}, 3000 )
+      //     .easing( TWEEN.Easing.Quadratic.InOut )
+      //     .onComplete(function(){
+
+      //       // move downward
+      //       new TWEEN.Tween( controls.superCam.position )
+      //       .to( {y: 0}, 3000 )
+      //       .easing( TWEEN.Easing.Quadratic.InOut )
+      //       .start();
+
+      //       // during the process of moving downward
+      //       // rotatet to look front
+      //       setTimeout(function(){
+      //         new TWEEN.Tween( controls.superCam.rotation )
+      //         .to( {x: 0}, 3000 )
+      //         .easing( TWEEN.Easing.Quadratic.InOut )
+      //         .start();
+      //       }, 2000);
+
+      //     })
+      //     .start();
+      //   })
+      //   .start();
+      // })
+      // .start();
+
+      // v.3
+      StartCamAnimationV2();
+
+
+      // v.0
+      // setTimeout(function(){
+      //   new TWEEN.Tween( controls.superCam.position )
+      //   .to( {y: 40}, 5000 )
+      //   .start();
+
+      //   setTimeout(function(){
+      //     new TWEEN.Tween( controls.superCam.rotation )
+      //     .to( {x: -Math.PI/2}, 3000 )
+      //     .start();
+
+      //     setTimeout(function(){
+      //       new TWEEN.Tween( controls.superCam.position )
+      //       .to( {y: 0}, 3000 )
+      //       .start();
+
+      //       setTimeout(function(){
+      //         new TWEEN.Tween( controls.superCam.rotation )
+      //         .to( {x: 0}, 3000 )
+      //         .start();
+      //       }, 2000);
+
+      //     }, 3000);
+
+      //   }, 5000);
+
+      // }, 2000);
+
+      break;
+  }
+}
+
+function StartCamAnimationV2() {
+
+  new TWEEN.Tween( controls.superCam.children[0].position )
+  .to( {z: 17}, Math.floor(1200/30*1000/camSpeed) )
+  .easing( TWEEN.Easing.Quadratic.InOut )
+  .start();
+  console.log("camera move forward");
+
+  // move down
+  new TWEEN.Tween( controls.superCam.position )
+  .to( {y: 2.8}, superCamKeyTime30FPS[0] )
+  .easing( TWEEN.Easing.Quadratic.InOut )
+  .start();
+  console.log("super camera move down");
+
+  // move up
+  setTimeout(function(){
+
+    new TWEEN.Tween( controls.superCam.position )
+    .to({y: 325}, superCamKeyTime30FPS[3]-superCamKeyTime30FPS[1])
+    .easing( TWEEN.Easing.Quadratic.InOut )
+    .onComplete(function(){
+
+      setTimeout(function(){
+        // go down
+        new TWEEN.Tween( controls.superCam.position )
+        .to( {y: -4.7}, superCamKeyTime30FPS[6]-superCamKeyTime30FPS[5] )
+        .easing( TWEEN.Easing.Quadratic.InOut )
+        .start();
+        console.log("super camera go down");
+
+      }, superCamKeyTime30FPS[5]-superCamKeyTime30FPS[3]);
+    })
+    .start();
+    console.log("super camera go up");
+
+    setTimeout(function(){
+      // rotate down
+      new TWEEN.Tween( controls.superCam.rotation )
+      .to( {x: -Math.PI/2}, superCamKeyTime30FPS[4]-superCamKeyTime30FPS[2] )
+      .easing( TWEEN.Easing.Quadratic.InOut )
+      .start();
+      console.log("super camera rotate and look down");
+
+    }, superCamKeyTime30FPS[2]-superCamKeyTime30FPS[1] );
+
+  }, superCamKeyTime30FPS[1]);
+}
+
+function StartCamAnimation() {
+  new TWEEN.Tween( controls.superCam.children[0].position )
+  .to( {z: 17}, 12000 )
+  .easing( TWEEN.Easing.Quadratic.InOut )
+  .start();
+  console.log("camera move forward");
+
+  // move down
+  new TWEEN.Tween( controls.superCam.position )
+  .to( {y: 2.8}, superCamKeyTime30FPS[0] )
+  .easing( TWEEN.Easing.Quadratic.InOut )
+  .start();
+  console.log("super camera move down");
+
+  // move up
+  setTimeout(function(){
+
+    new TWEEN.Tween( controls.superCam.position )
+    .to({y: 325}, superCamKeyTime30FPS[1]-superCamKeyTime30FPS[0])
+    .easing( TWEEN.Easing.Quadratic.InOut )
+    .onComplete(function(){
+
+      // rotate down
+      new TWEEN.Tween( controls.superCam.rotation )
+      .to( {x: -Math.PI/2}, superCamKeyTime30FPS[3]-superCamKeyTime30FPS[2] )
+      .easing( TWEEN.Easing.Quadratic.InOut )
+      .onComplete(function(){
+
+        // go down
+        new TWEEN.Tween( controls.superCam.position )
+        .to( {y: -4.7}, superCamKeyTime30FPS[4]-superCamKeyTime30FPS[3] )
+        .easing( TWEEN.Easing.Quadratic.InOut )
+        .start();
+        console.log("super camera go down");
+      })
+      .start();
+      console.log("super camera rotate and look down");
+    })
+    .start();
+    console.log("super camera go up");
+
+  }, superCamKeyTime30FPS[1]);
+}
+
+function onTouchStart() {
+  controls.align();
+}
+
+window.addEventListener('keydown', onKey, true);
+window.addEventListener( 'touchstart', onTouchStart, false );
+
+</script>
+
+</html>
