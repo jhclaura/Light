@@ -217,7 +217,7 @@ var particleSystem, spawnerOptions, options, expOptions = [];
 var tick = 0, clock = new THREE.Clock(true);
 
 particleSystem = new THREE.GPUParticleSystem({
-  maxParticles: 10000
+  maxParticles: 5000
 });
 scene.add(particleSystem);
 
@@ -231,7 +231,7 @@ options = {
   turbulence: 10, //.5
   lifetime: 50,  //2
   size: 10,
-  sizeRandomness: 10
+  sizeRandomness: 5
 };
 
 spawnerOptions = {
