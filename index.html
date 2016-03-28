@@ -187,7 +187,7 @@ var manager = new WebVRManager(renderer, effect, params);
 //-------------------------------------------------------
 var gui = new dat.GUI();
 
-var geometry = new THREE.BoxGeometry( 5, 5, 5 );
+var geometry = new THREE.BoxGeometry( 10, 10, 10 );
 var material = new THREE.MeshNormalMaterial({transparent: true, opacity: 0});
 var mesh = new THREE.Mesh(geometry, material);
 mesh.visible = false;
@@ -217,20 +217,20 @@ var particleSystem, spawnerOptions, options, expOptions = [];
 var tick = 0, clock = new THREE.Clock(true);
 
 particleSystem = new THREE.GPUParticleSystem({
-  maxParticles: 5000
+  maxParticles: 10000
 });
 scene.add(particleSystem);
 
 options = {
   // position: new THREE.Vector3(),
-  positionRandomness: 2,  //.3
+  positionRandomness: 3,  //.3
   // velocity: new THREE.Vector3(),
-  velocityRandomness: 1.4, //.5
+  velocityRandomness: 1, //.5
   // color: 0xaa88ff,
   colorRandomness: .2,
   turbulence: 10, //.5
   lifetime: 50,  //2
-  size: 10,
+  size: 8,
   sizeRandomness: 5
 };
 

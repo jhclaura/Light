@@ -134,11 +134,11 @@ THREE.GPUParticleSystem = function(options) {
 
       'newPosition = mix(newPosition, newPosition + vec3(noiseVel * ( turbulence * 5. ) ), (timeElapsed / particleVelColSizeLife.a) );',
 
-      'if( velocity.y > 0. && velocity.y < .05 ) {', // .05, .001
+      'if( velocity.y > 0. && velocity.y < .01 ) {', // .05, .001
       'lifeLeft = 0.;',
       '}',
 
-      'if( velocity.x < -1.45 ) {', //-1.45
+      'if( velocity.x < -0.29 ) {', //-1.45
       'lifeLeft = 0.;',
       '}',
 
